@@ -2,13 +2,15 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { AuthProvider } from "@/contexts/auth-context"
+import { Providers } from "./providers"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Bookmark Manager - Organize seus links favoritos",
-  description: "Uma aplicação moderna para organizar e compartilhar seus bookmarks favoritos",
+  title: "Bookmark Manager",
+  description: "Gerencie seus bookmarks com inteligência artificial",
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -19,7 +21,10 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        <AuthProvider>{children}</AuthProvider>
+        <Providers>
+          {children}
+          <Toaster />
+        </Providers>
       </body>
     </html>
   )

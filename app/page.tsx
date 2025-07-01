@@ -1,264 +1,261 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { useEffect, useState, useMemo } from "react"
+import { Header } from "@/components/header"
 import { BookmarkCard } from "@/components/bookmark-card"
-import { BookmarkForm } from "@/components/bookmark-form"
+import { AddBookmarkDialog } from "@/components/add-bookmark-dialog"
 import { SearchBar } from "@/components/search-bar"
-import { Navbar } from "@/components/navbar"
+import { FilterDropdown } from "@/components/filter-dropdown"
 import { Button } from "@/components/ui/button"
-import { Plus, BookmarkIcon, AlertCircle, Globe, UserCheck } from "lucide-react"
-import { ProtectedRoute } from "@/components/protected-route"
-import { bookmarkAPI } from "@/lib/api"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useAuth } from "@/contexts/auth-context"
-
-interface User {
-  id: string
-  name: string
-  email: string
-}
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Loader2, BookmarkIcon, Sparkles } from "lucide-react"
+import Link from "next/link"
 
 interface Bookmark {
   id: string
   title: string
   description: string
-  url: string
+  link: string
+  tags: string[]
   createdAt: string
-  updatedAt: string
-  userId: string
-  user: User
+  aiGenerated?: string
 }
 
-export default function HomePage() {
+export default function Home() {
+  const { data: session, status } = useSession()
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
-  const [showForm, setShowForm] = useState(false)
-  const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [currentView, setCurrentView] = useState<"all" | "my">("all")
-  const { user } = useAuth()
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
 
-  // Carregar bookmarks do banco
-  const loadBookmarks = async (search?: string, view: "all" | "my" = currentView) => {
+  const fetchBookmarks = async () => {
     try {
-      setLoading(true)
-      setError("")
-
-      let data: Bookmark[]
-      if (view === "my" && user) {
-        data = await bookmarkAPI.getMyBookmarks(user.id, search)
-      } else {
-        data = await bookmarkAPI.getBookmarks(search)
+      const response = await fetch("/api/bookmarks")
+      if (response.ok) {
+        const data = await response.json()
+        setBookmarks(data)
       }
-
-      setBookmarks(data)
-    } catch (err) {
-      setError("Erro ao carregar bookmarks. Tente novamente.")
-      console.error("Erro ao carregar bookmarks:", err)
+    } catch (error) {
+      console.error("Error fetching bookmarks:", error)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  // Carregar bookmarks ao montar o componente
   useEffect(() => {
-    if (user) {
-      loadBookmarks()
+    if (session) {
+      fetchBookmarks()
+    } else if (status !== "loading") {
+      setIsLoading(false)
     }
-  }, [user, currentView])
+  }, [session, status])
 
-  // Buscar bookmarks quando o termo de busca mudar
-  useEffect(() => {
-    if (user) {
-      const timeoutId = setTimeout(() => {
-        loadBookmarks(searchTerm, currentView)
-      }, 300) // Debounce de 300ms
+  // Filtrar bookmarks baseado na busca e tags selecionadas
+  const filteredBookmarks = useMemo(() => {
+    return bookmarks.filter((bookmark) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        bookmark.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        bookmark.description.toLowerCase().includes(searchQuery.toLowerCase())
 
-      return () => clearTimeout(timeoutId)
-    }
-  }, [searchTerm, currentView, user])
+      const matchesTags = selectedTags.length === 0 || selectedTags.some((tag) => bookmark.tags.includes(tag))
 
-  const handleViewChange = (view: "all" | "my") => {
-    setCurrentView(view)
-    setSearchTerm("") // Limpar busca ao trocar de view
-  }
+      return matchesSearch && matchesTags
+    })
+  }, [bookmarks, searchQuery, selectedTags])
 
-  const handleAddBookmark = async (bookmarkData: { title: string; description: string; url: string }) => {
-    try {
-      const newBookmark = await bookmarkAPI.createBookmark(bookmarkData)
-      setBookmarks((prev) => [newBookmark, ...prev])
-      setShowForm(false)
-    } catch (err) {
-      console.error("Erro ao criar bookmark:", err)
-      throw err // Deixa o formulário lidar com o erro
-    }
-  }
+  // Extrair todas as tags únicas dos bookmarks
+  const allTags = useMemo(() => {
+    const tagCount = new Map<string, number>()
+    bookmarks.forEach((bookmark) => {
+      bookmark.tags.forEach((tag) => {
+        tagCount.set(tag, (tagCount.get(tag) || 0) + 1)
+      })
+    })
 
-  const handleEditBookmark = async (bookmarkData: { title: string; description: string; url: string }) => {
-    if (!editingBookmark) return
+    // Ordenar tags por frequência
+    return Array.from(tagCount.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag]) => tag)
+  }, [bookmarks])
 
-    try {
-      const updatedBookmark = await bookmarkAPI.updateBookmark(editingBookmark.id, bookmarkData)
-      setBookmarks((prev) => prev.map((bookmark) => (bookmark.id === editingBookmark.id ? updatedBookmark : bookmark)))
-      setEditingBookmark(null)
-      setShowForm(false)
-    } catch (err) {
-      console.error("Erro ao editar bookmark:", err)
-      throw err // Deixa o formulário lidar com o erro
+  const handleTagSelect = (tag: string) => {
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags([...selectedTags, tag])
     }
   }
 
-  const handleDeleteBookmark = async (id: string) => {
-    try {
-      await bookmarkAPI.deleteBookmark(id)
-      setBookmarks((prev) => prev.filter((bookmark) => bookmark.id !== id))
-    } catch (err) {
-      console.error("Erro ao excluir bookmark:", err)
-      setError("Erro ao excluir bookmark. Tente novamente.")
-    }
+  const handleTagRemove = (tag: string) => {
+    setSelectedTags(selectedTags.filter((t) => t !== tag))
   }
 
-  const openEditForm = (bookmark: Bookmark) => {
-    setEditingBookmark(bookmark)
-    setShowForm(true)
+  const clearAllTags = () => {
+    setSelectedTags([])
   }
 
-  const closeForm = () => {
-    setShowForm(false)
-    setEditingBookmark(null)
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    )
   }
 
-  const getHeaderInfo = () => {
-    if (currentView === "my") {
-      return {
-        icon: <UserCheck className="h-8 w-8 text-blue-600" />,
-        title: "Meus Bookmarks",
-        description: "Gerencie seus bookmarks pessoais",
-      }
-    }
-    return {
-      icon: <Globe className="h-8 w-8 text-blue-600" />,
-      title: "Bookmarks Compartilhados",
-      description: "Descubra e compartilhe links interessantes com a comunidade",
-    }
-  }
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div className="container mx-auto px-4 py-16">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="mb-8">
+              <BookmarkIcon className="h-20 w-20 mx-auto mb-6 text-blue-600" />
+              <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Bookmark Manager
+              </h1>
+              <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+                Organize seus links favoritos aqui! Análise automática, tags
+                inteligentes (na medida do possível) e busca avançada.
+              </p>
+            </div>
 
-  const getSearchPlaceholder = () => {
-    if (currentView === "my") {
-      return "Buscar nos meus bookmarks..."
-    }
-    return "Buscar por título, descrição ou autor..."
-  }
+            <div className="grid md:grid-cols-3 gap-6 mb-12">
+              <Card className="bg-white/50 backdrop-blur-sm border-white/20">
+                <CardContent className="p-6 text-center">
+                  <Sparkles className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">IA Integrada</h3>
+                  <p className="text-sm text-gray-600">Análise automática de URLs com preenchimento inteligente</p>
+                </CardContent>
+              </Card>
 
-  const getEmptyStateMessage = () => {
-    if (currentView === "my") {
-      return {
-        title: searchTerm ? "Nenhum bookmark encontrado" : "Você ainda não tem bookmarks",
-        description: searchTerm ? "Tente buscar por outros termos" : "Comece adicionando seu primeiro bookmark",
-      }
-    }
-    return {
-      title: searchTerm ? "Nenhum bookmark encontrado" : "Nenhum bookmark cadastrado",
-      description: searchTerm ? "Tente buscar por outros termos" : "Seja o primeiro a compartilhar um bookmark",
-    }
-  }
+              <Card className="bg-white/50 backdrop-blur-sm border-white/20">
+                <CardContent className="p-6 text-center">
+                  <BookmarkIcon className="h-12 w-12 text-purple-500 mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">Busca Avançada</h3>
+                  <p className="text-sm text-gray-600">Encontre rapidamente com filtros por tags e busca textual</p>
+                </CardContent>
+              </Card>
 
-  const headerInfo = getHeaderInfo()
-  const emptyState = getEmptyStateMessage()
+              <Card className="bg-white/50 backdrop-blur-sm border-white/20">
+                <CardContent className="p-6 text-center">
+                  <BookmarkIcon className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">Organização</h3>
+                  <p className="text-sm text-gray-600">Mantenha seus links organizados com tags automáticas</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-4">
+              <Button
+                asChild
+                size="lg"
+                className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 text-lg"
+              >
+                <Link href="/auth/signin">Entrar na Plataforma</Link>
+              </Button>
+              <div className="text-center">
+                <span className="text-gray-500">Não tem conta? </span>
+                <Link href="/auth/signup" className="text-blue-600 hover:text-blue-700 font-semibold">
+                  Cadastre-se gratuitamente
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-        <Navbar currentView={currentView} onViewChange={handleViewChange} />
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-6xl mx-auto">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                {headerInfo.icon}
-                <h1 className="text-4xl font-bold text-gray-900">{headerInfo.title}</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+      <Header />
+      <main className="container mx-auto px-4 py-8">
+        {/* Header com busca e total */}
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                  Meus Bookmarks
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  {filteredBookmarks.length} de {bookmarks.length} bookmark{bookmarks.length !== 1 ? "s" : ""}
+                  {searchQuery && ` encontrado${filteredBookmarks.length !== 1 ? "s" : ""} para "${searchQuery}"`}
+                  {selectedTags.length > 0 &&
+                    ` com ${selectedTags.length} filtro${selectedTags.length !== 1 ? "s" : ""}`}
+                </p>
               </div>
-              <p className="text-lg text-gray-600 max-w-2xl mx-auto">{headerInfo.description}</p>
+              {/* Total de bookmarks como badge */}
+              {bookmarks.length > 0 && (
+                <Badge
+                  variant="outline"
+                  className="bg-blue-50 text-blue-700 border-blue-200 px-3 py-1 text-sm font-semibold"
+                >
+                  {bookmarks.length} total
+                </Badge>
+              )}
             </div>
-
-            {/* Error Alert */}
-            {error && (
-              <Alert variant="destructive" className="mb-6">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* Search and Add Button */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
-              <div className="flex-1">
-                <SearchBar
-                  searchTerm={searchTerm}
-                  onSearchChange={setSearchTerm}
-                  placeholder={getSearchPlaceholder()}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <SearchBar onSearch={setSearchQuery} />
+              {allTags.length > 0 && (
+                <FilterDropdown
+                  availableTags={allTags}
+                  selectedTags={selectedTags}
+                  onTagSelect={handleTagSelect}
+                  onTagRemove={handleTagRemove}
+                  onClearAll={clearAllTags}
                 />
-              </div>
-              <Button
-                onClick={() => setShowForm(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-md transition-all duration-200 hover:shadow-lg"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Adicionar Bookmark
-              </Button>
+              )}
+              <AddBookmarkDialog onSuccess={fetchBookmarks} />
             </div>
-
-            {/* Form Modal */}
-            {showForm && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-                  <BookmarkForm
-                    onSubmit={editingBookmark ? handleEditBookmark : handleAddBookmark}
-                    onCancel={closeForm}
-                    initialData={editingBookmark}
-                    isEditing={!!editingBookmark}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Loading State */}
-            {loading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              </div>
-            ) : (
-              /* Bookmarks Grid */
-              <>
-                {bookmarks.length === 0 ? (
-                  <div className="text-center py-16">
-                    <BookmarkIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-500 mb-2">{emptyState.title}</h3>
-                    <p className="text-gray-400 mb-6">{emptyState.description}</p>
-                    {!searchTerm && (
-                      <Button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
-                        <Plus className="h-5 w-5 mr-2" />
-                        {currentView === "my" ? "Adicionar Meu Primeiro Bookmark" : "Adicionar Primeiro Bookmark"}
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {bookmarks.map((bookmark) => (
-                      <BookmarkCard
-                        key={bookmark.id}
-                        bookmark={bookmark}
-                        onEdit={openEditForm}
-                        onDelete={handleDeleteBookmark}
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
           </div>
-        </main>
-      </div>
-    </ProtectedRoute>
+        </div>
+
+        {/* Conteúdo principal */}
+        <div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+                <p className="text-gray-600">Carregando seus bookmarks...</p>
+              </div>
+            </div>
+          ) : filteredBookmarks.length === 0 ? (
+            <div className="text-center py-12">
+              <BookmarkIcon className="h-20 w-20 mx-auto mb-6 text-gray-400" />
+              {bookmarks.length === 0 ? (
+                <>
+                  <h3 className="text-2xl font-semibold mb-4">Nenhum bookmark ainda!</h3>
+                  <AddBookmarkDialog onSuccess={fetchBookmarks} />
+                </>
+              ) : (
+                <>
+                  <h3 className="text-2xl font-semibold mb-4">Nenhum resultado encontrado</h3>
+                  <p className="text-gray-600 mb-6">Tente ajustar sua busca ou remover alguns filtros.</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchQuery("")
+                      setSelectedTags([])
+                    }}
+                  >
+                    Limpar Filtros
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredBookmarks.map((bookmark) => (
+                <BookmarkCard key={bookmark.id} bookmark={bookmark} onUpdate={fetchBookmarks} />
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
   )
 }

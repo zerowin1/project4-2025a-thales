@@ -24,7 +24,6 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
-  @@map("accounts")
 }
 
 model Session {
@@ -33,23 +32,18 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
 }
 
 model User {
   id            String    @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String?   @unique
   emailVerified DateTime?
   image         String?
-  password      String?   // Opcional para OAuth users
-
-  accounts Account[]
-  sessions Session[]
-  bookmarks Bookmark[]
-
-  @@map("users")
+  password      String?   // Adicionar campo para senha
+  accounts      Account[]
+  sessions      Session[]
+  bookmarks     Bookmark[]
 }
 
 model VerificationToken {
@@ -58,20 +52,18 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-  @@map("verificationtokens")
 }
 
 model Bookmark {
   id          String   @id @default(cuid())
-  title       String
-  description String
-  url         String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  // Relacionamento com usuário
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("bookmarks")
+  title       String
+  description String
+  link        String
+  tags        String[]
+  aiGenerated String?  @db.Text // Armazenar dados da IA como JSON
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

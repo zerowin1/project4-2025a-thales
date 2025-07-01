@@ -1,142 +1,266 @@
 "use client"
 
 import { useState } from "react"
-import { ExternalLink, Edit, Trash2, Calendar, MoreVertical, User } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/contexts/auth-context"
-
-interface BookmarkUser {
-  id: string
-  name: string
-  email: string
-}
+import { Badge } from "@/components/ui/badge"
+import { Edit, Trash2, ExternalLink, Calendar, Sparkles, Code } from "lucide-react"
+import { EditBookmarkDialog } from "./edit-bookmark-dialog"
+import { DeleteBookmarkDialog } from "./delete-bookmark-dialog"
 
 interface Bookmark {
   id: string
   title: string
   description: string
-  url: string
+  link: string
+  tags: string[]
   createdAt: string
-  updatedAt: string
-  userId: string
-  user: BookmarkUser
+  aiGenerated?: string
 }
 
 interface BookmarkCardProps {
   bookmark: Bookmark
-  onEdit: (bookmark: Bookmark) => void
-  onDelete: (id: string) => void
+  onUpdate: () => void
 }
 
-export function BookmarkCard({ bookmark, onEdit, onDelete }: BookmarkCardProps) {
-  const [isDeleting, setIsDeleting] = useState(false)
-  const { user: currentUser } = useAuth()
+export function BookmarkCard({ bookmark, onUpdate }: BookmarkCardProps) {
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
-  const isOwner = currentUser?.id === bookmark.userId
-
-  const handleDelete = async () => {
-    if (!isOwner) return
-
-    setIsDeleting(true)
-    try {
-      await onDelete(bookmark.id)
-    } catch (error) {
-      console.error("Erro ao excluir:", error)
-    } finally {
-      setIsDeleting(false)
+  // Parse dos dados da IA
+  let aiData = null
+  try {
+    if (bookmark.aiGenerated && bookmark.aiGenerated !== "null") {
+      aiData = JSON.parse(bookmark.aiGenerated)
     }
+  } catch (error) {
+    console.log("Erro ao fazer parse dos dados da IA:", error)
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("pt-BR")
-  }
-
-  const getDomain = (url: string) => {
+  const getDomainFromUrl = (url: string) => {
     try {
       return new URL(url).hostname.replace("www.", "")
     } catch {
-      return url
+      return "Link"
+    }
+  }
+
+  // Obter metadados da tag
+  const getTagMetadata = (tag: string) => {
+    if (!aiData?.tagsWithConfidence) {
+      return { type: "unknown", confidence: 0 }
+    }
+
+    const tagWithMeta = aiData.tagsWithConfidence.find((t: any) => t.tag === tag)
+    if (tagWithMeta) {
+      return {
+        type: tagWithMeta.source,
+        confidence: tagWithMeta.confidence,
+      }
+    }
+
+    // Fallback para lógica anterior
+    if (aiData.tags && Array.isArray(aiData.tags) && aiData.tags.includes(tag)) {
+      return { type: "ai", confidence: 0 }
+    }
+
+    if (aiData.backupTags && Array.isArray(aiData.backupTags) && aiData.backupTags.includes(tag)) {
+      return { type: "backup", confidence: 0 }
+    }
+
+    return { type: "unknown", confidence: 0 }
+  }
+
+  // Estilos das tags baseados no tipo
+  const getTagStyle = (tagType: string, confidence: number) => {
+    switch (tagType) {
+      case "ai-high":
+        return "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-green-400 hover:from-green-600 hover:to-emerald-600 shadow-md font-medium"
+      case "ai-medium":
+        return "bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-blue-400 hover:from-blue-600 hover:to-cyan-600 shadow-md font-medium"
+      case "ai-low":
+      case "ai-best":
+        return "bg-gradient-to-r from-purple-400 to-pink-400 text-white border-purple-300 hover:from-purple-500 hover:to-pink-500 shadow-sm"
+      case "backup":
+        return "bg-gradient-to-r from-gray-400 to-slate-400 text-white border-gray-300 hover:from-gray-500 hover:to-slate-500 shadow-sm"
+      case "ai":
+        return "bg-gradient-to-r from-purple-500 to-blue-500 text-white border-purple-400 hover:from-purple-600 hover:to-blue-600 shadow-md font-medium"
+      default:
+        return "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200"
+    }
+  }
+
+  // Ícone da tag
+  const getTagIcon = (tagType: string) => {
+    switch (tagType) {
+      case "ai-high":
+      case "ai-medium":
+      case "ai-low":
+      case "ai-best":
+      case "ai":
+        return <Sparkles className="h-3 w-3 mr-1" />
+      case "backup":
+        return <Code className="h-3 w-3 mr-1" />
+      default:
+        return null
+    }
+  }
+
+  // Tooltip simplificado da tag
+  const getTagTitle = (tagType: string) => {
+    switch (tagType) {
+      case "ai-high":
+      case "ai-medium":
+      case "ai-low":
+      case "ai-best":
+      case "ai":
+        return "Tag de IA"
+      case "backup":
+        return "Tag de Backup"
+      default:
+        return "Tag padrão"
     }
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 overflow-hidden group">
-      {/* Card Header */}
-      <div className="p-6 pb-4">
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 flex-1 mr-2">{bookmark.title}</h3>
-          {isOwner && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(bookmark)}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleDelete}
-                  className="text-red-600 focus:text-red-600"
-                  disabled={isDeleting}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {isDeleting ? "Excluindo..." : "Excluir"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+    <>
+      <Card className="h-full group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white to-gray-50 border-gray-200">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-lg line-clamp-2 group-hover:text-blue-600 transition-colors">
+                {bookmark.title}
+              </CardTitle>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                  {getDomainFromUrl(bookmark.link)}
+                </Badge>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  {new Date(bookmark.createdAt).toLocaleDateString("pt-BR")}
+                </div>
+                {aiData?.success && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border-purple-300"
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    IA Ativa
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowEditDialog(true)}
+                className="h-8 w-8 hover:bg-blue-100 hover:text-blue-600"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowDeleteDialog(true)}
+                className="h-8 w-8 hover:bg-red-100 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {bookmark.description && (
+            <div className="space-y-1">
+              <CardDescription className="line-clamp-3 text-sm leading-relaxed">{bookmark.description}</CardDescription>
+            </div>
           )}
-        </div>
 
-        <p className="text-gray-600 text-sm line-clamp-3 mb-4 leading-relaxed">{bookmark.description}</p>
+          <Button
+            variant="outline"
+            className="w-full justify-start bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200 text-blue-700 hover:text-blue-800 transition-all"
+            onClick={() => window.open(bookmark.link, "_blank")}
+          >
+            <ExternalLink className="mr-2 h-4 w-4" />
+            Abrir Link
+          </Button>
 
-        {/* Link */}
-        <a
-          href={bookmark.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors group/link"
-        >
-          <ExternalLink className="h-4 w-4" />
-          <span className="underline decoration-blue-200 group-hover/link:decoration-blue-400 transition-colors">
-            {getDomain(bookmark.url)}
-          </span>
-        </a>
-      </div>
+          {bookmark.tags.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {bookmark.tags.slice(0, 6).map((tag, index) => {
+                  const tagMeta = getTagMetadata(tag)
+                  return (
+                    <Badge
+                      key={index}
+                      variant="secondary"
+                      className={`text-xs transition-all hover:scale-105 cursor-default ${getTagStyle(tagMeta.type, tagMeta.confidence)}`}
+                      title={getTagTitle(tagMeta.type)}
+                    >
+                      {getTagIcon(tagMeta.type)}
+                      {tag}
+                      {tagMeta.confidence > 0 && <span className="ml-1 opacity-75">({tagMeta.confidence}%)</span>}
+                    </Badge>
+                  )
+                })}
+                {bookmark.tags.length > 6 && (
+                  <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-500">
+                    +{bookmark.tags.length - 6}
+                  </Badge>
+                )}
+              </div>
 
-      {/* Card Footer */}
-      <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            <span>Adicionado em {formatDate(bookmark.createdAt)}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <User className="h-3 w-3" />
-            <span className="font-medium">{bookmark.user.name}</span>
-          </div>
-        </div>
-        {isOwner && (
-          <div className="flex gap-2 mt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onEdit(bookmark)}
-              className="h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <Edit className="h-3 w-3 mr-1" />
-              Editar
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
+              {/* Contador de tags */}
+              {aiData?.tagsWithConfidence && (
+                <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg p-3 border border-gray-200">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-4">
+                      {aiData.tagsWithConfidence.filter((t: any) => t.source.startsWith("ai")).length > 0 && (
+                        <div className="flex items-center gap-1 text-purple-700 font-medium">
+                          <Sparkles className="h-3 w-3" />
+                          <span>
+                            IA: {aiData.tagsWithConfidence.filter((t: any) => t.source.startsWith("ai")).length}
+                          </span>
+                        </div>
+                      )}
+                      {aiData.tagsWithConfidence.filter((t: any) => t.source === "backup").length > 0 && (
+                        <div className="flex items-center gap-1 text-gray-600 font-medium">
+                          <Code className="h-3 w-3" />
+                          <span>
+                            Backup: {aiData.tagsWithConfidence.filter((t: any) => t.source === "backup").length}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-gray-500 font-medium">Total: {bookmark.tags.length}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <EditBookmarkDialog
+        bookmark={bookmark}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSuccess={() => {
+          setShowEditDialog(false)
+          onUpdate()
+        }}
+      />
+
+      <DeleteBookmarkDialog
+        bookmark={bookmark}
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onSuccess={() => {
+          setShowDeleteDialog(false)
+          onUpdate()
+        }}
+      />
+    </>
   )
 }
