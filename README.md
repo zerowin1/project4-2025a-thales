@@ -1,6 +1,6 @@
 # Projeto final: Aplicação com login federado e API para serviço de IA
 
-![Substitua a imagem ao lado por um screenshot do seu projeto](https://mdswanson.com/static/chops-ux-step-4.png "Screenshot do projeto")
+![img projeto](./img/1.png "Screenshot do projeto")
 
 
 Acesso: https://project4-2025a-thales.vercel.app/
