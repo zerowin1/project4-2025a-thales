@@ -1,124 +1,55 @@
-# Bookmark Manager
+# Projeto final: Aplicação com login federado e API para serviço de IA
 
-Uma aplicação web completa para gerenciar bookmarks com inteligência artificial, construída com Next.js 14, TypeScript, Tailwind CSS e shadcn/ui.
+> 1. Baixe este arquivo e edite o texto em formato Markdown conforme as instruções a seguir.
+> 2. Substitua todos os trechos de texto iniciados com "Substitua" por informações do seu projeto, conforme solicitado em cada trecho.
+> 3. Substitua a imagem por um screenshot do projeto (arquivo pode ser armazenado no repositório ou em URL externa). GIFs animados também são permitidos!
+> 4. Remova todas as instruções de entrega.
+> 5. Double-check: Certifique-se de que seu README.md não contenha instruções de entrega!
+> 6. Entregue este README.md dentro da pasta raiz do repositório de entrega.
+> Opcional: é permitido alterar a formatação do README, desde que sejam mantidas todas as informações solicitadas (tudo bem adicionar mais informações)
 
-## Funcionalidades
+![Substitua a imagem ao lado por um screenshot do seu projeto](https://mdswanson.com/static/chops-ux-step-4.png "Screenshot do projeto")
 
-- 🔐 **Autenticação com Google OAuth** - Login seguro via Google
-- 🤖 **IA para análise de URLs** - Preenchimento automático de título, descrição e tags
-- 📚 **CRUD completo** - Criar, visualizar, editar e deletar bookmarks
-- 🎨 **Interface moderna** - Design responsivo com shadcn/ui
-- 🗄️ **Banco PostgreSQL** - Persistência de dados com Prisma ORM
 
-## Tecnologias Utilizadas
+Acesso: Substitua este texto pela URL de deploy do projeto
 
-- **Framework**: Next.js 14 (App Router)
-- **Linguagem**: TypeScript
-- **Estilização**: Tailwind CSS + shadcn/ui
-- **Autenticação**: NextAuth.js
-- **Banco de Dados**: PostgreSQL + Prisma
-- **IA**: Hugging Face Inference API
 
-## Configuração do Projeto
+### Desenvolvedores
+Substitua este texto pela identificação da dupla: nomes e cursos
 
-### 1. Instalação
 
-\`\`\`bash
-npm install
-\`\`\`
+### Nosso produto
 
-### 2. Configuração do Banco de Dados
+Substitua este texto por uma descrição dos objetivos e funcionalidades da aplicação desenvolvida.
 
-1. Configure sua string de conexão PostgreSQL no arquivo `.env`
-2. Execute as migrações:
 
-\`\`\`bash
-npx prisma db push
-npx prisma generate
-\`\`\`
 
-### 3. Configuração das Variáveis de Ambiente
+### Desenvolvimento
 
-Copie o arquivo `.env.example` para `.env` e configure:
+Substitua este texto por uma descrição do processo de desenvolvimento, explicando decisões tomadas e etapas do trabalho.
 
-- `DATABASE_URL`: String de conexão do PostgreSQL
-- `NEXTAUTH_URL`: URL da aplicação (http://localhost:3000 em desenvolvimento)
-- `NEXTAUTH_SECRET`: Chave secreta para NextAuth.js
-- `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`: Credenciais do Google OAuth
-- `HUGGINGFACE_API_KEY`: Chave da API do Hugging Face
 
-### 4. Configuração do Google OAuth
+#### Tecnologias
 
-1. Acesse o [Google Cloud Console](https://console.cloud.google.com/)
-2. Crie um novo projeto ou selecione um existente
-3. Ative a Google+ API
-4. Configure as credenciais OAuth 2.0
-5. Adicione `http://localhost:3000/api/auth/callback/google` como URI de redirecionamento
+Substitua este trecho por uma lista detalhada de tecnologias usadas (tanto as básicas, como HTML e CSS, como as mais específicas, por exemplo algum framework, biblioteca, etc.):
+- ...
+- ...
+- 
 
-### 5. Configuração do Hugging Face
+#### Ambiente de desenvolvimento
 
-1. Crie uma conta no [Hugging Face](https://huggingface.co/)
-2. Gere uma API key em Settings > Access Tokens
-3. Adicione a chave no arquivo `.env`
+Substitua este trecho por uma lista detalhada dos ambientes/ferramentas de desenvolvimento utilizadas (por exemplo, VS Code + alguma extensão, etc.)
+- ...
+- ...
 
-### 6. Executar a Aplicação
+#### Referências e créditos
 
-\`\`\`bash
-npm run dev
-\`\`\`
+Substitua este trecho por uma lista bem detalhada de todo material consultado para ajudar no projeto, por exemplo:  URL de templates usados, URL de icon kits usados, créditos para colegas que colaboraram, geradores de código (incluindo alguns prompts usados para o ChatGPT, se for o caso)
+- ...
+- ...
 
-A aplicação estará disponível em `http://localhost:3000`.
 
-## Estrutura do Projeto
 
-\`\`\`
-├── app/
-│   ├── api/                 # API Routes
-│   ├── globals.css         # Estilos globais
-│   ├── layout.tsx          # Layout principal
-│   ├── page.tsx            # Página inicial
-│   └── providers.tsx       # Providers React
-├── components/             # Componentes React
-├── lib/                   # Utilitários e configurações
-├── prisma/                # Schema do banco de dados
-└── public/                # Arquivos estáticos
-\`\`\`
 
-## Como Usar
-
-1. **Login**: Faça login com sua conta Google
-2. **Adicionar Bookmark**: 
-   - Clique em "Adicionar Bookmark"
-   - Cole a URL desejada
-   - Clique em "Analisar com IA"
-   - Revise e edite as informações geradas
-   - Salve o bookmark
-3. **Gerenciar Bookmarks**: Use os botões de editar e deletar em cada card
-
-## Funcionalidades da IA
-
-A IA analisa automaticamente o conteúdo da página e gera:
-- **Título**: Extraído do título da página ou H1
-- **Descrição**: Resumo do conteúdo principal
-- **Tags**: Tags relevantes baseadas no conteúdo
-
-## Deploy
-
-Para fazer deploy da aplicação:
-
-1. Configure as variáveis de ambiente na plataforma de deploy
-2. Configure um banco PostgreSQL em produção
-3. Execute `npm run build`
-4. Deploy na Vercel, Netlify ou plataforma de sua escolha
-
-## Contribuição
-
-1. Fork o projeto
-2. Crie uma branch para sua feature
-3. Commit suas mudanças
-4. Push para a branch
-5. Abra um Pull Request
-
-## Licença
-
-Este projeto está sob a licença MIT.
+---
+Projeto entregue para a disciplina de [Desenvolvimento de Software para a Web](http://github.com/andreainfufsm/elc1090-2025a) em 2025a
